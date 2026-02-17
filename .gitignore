@@ -32,3 +32,8 @@ hyperparams/optimized/
 # OS
 .DS_Store
 Thumbs.db
+
+# Runtime state
+data/*.json
+portfolio_state.json
+decision_history.json
