@@ -8,6 +8,21 @@ Applying risk-sensitive reinforcement learning to financial markets.
 - Model human cognitive biases in trading: loss aversion, recency bias, disposition effect
 - Backtest prospect theory + CVaR strategies on ETFs, equities, and commodities (gold)
 
+## Technology choices
+
+**Current phase: Python (research)**
+
+Python is the right tool for the research phase — unmatched ML/RL ecosystem (PyTorch, Gymnasium, scikit-learn), rapid prototyping, and market data in 3 lines of code (yfinance). The focus is on validating ideas, not production performance.
+
+**Future phase: Rust (live trading)**
+
+If research results prove viable, a rewrite to Rust will be necessary for live execution:
+- Microsecond latency, zero-cost abstractions, no GC pauses
+- Memory safety guaranteed at compile time
+- Architecture reference: [dprc-autotrader-v2](https://github.com/affaan-m/dprc-autotrader-v2) (Rust autonomous trading agent)
+- The Python codebase will serve as a **functional specification** — algorithms validated by backtesting before any Rust rewrite
+- Transition planned module by module: decision engine (RL agent) first, then data pipeline, then execution layer
+
 ## Architecture
 
 ```
@@ -36,7 +51,7 @@ docs/              # Research notes, papers
 ## Dependencies
 
 - Python 3.12+
-- PyTorch
+- PyTorch (CPU)
 - Gymnasium
 - yfinance (market data)
 - pandas, numpy, matplotlib
@@ -48,6 +63,10 @@ docs/              # Research notes, papers
 - Tversky & Kahneman (1992) — Prospect Theory
 - Rockafellar & Uryasev (2000) — CVaR optimization
 - Moody & Saffell (2001) — RL for trading
+
+## Status
+
+**Phase 1 — Research.** No live trading, no real money.
 
 ## License
 
