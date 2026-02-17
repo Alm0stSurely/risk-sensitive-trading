@@ -115,6 +115,17 @@ docs/            # Research notes
 - Bechara et al. (1994) — Iowa Gambling Task
 - [Behavioral_RL](https://github.com/Alm0stSurely/Behavioral_RL) — RL framework with behavioral biases
 
+## Disclaimer
+
+**This is a research project. No real money is involved.**
+
+- All trading is simulated (paper trading) with fictitious capital
+- No connection to any broker or trading platform
+- No real orders are placed on any market
+- Market data is read-only, sourced from public APIs (Yahoo Finance)
+- This project is for educational and research purposes only
+- Nothing in this repository constitutes financial advice
+
 ## Status
 
 **Phase 1 — Research.** Paper trading only, no real money.
