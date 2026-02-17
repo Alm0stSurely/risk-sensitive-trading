@@ -12,3 +12,24 @@ data/*.csv
 .ipynb_checkpoints/
 *.log
 wandb/
+
+# Secrets
+.env.*
+*.key
+*.pem
+credentials/
+secrets/
+
+# Trained models (keep local only)
+models/
+checkpoints/
+*.onnx
+
+# Local config with sensitive params
+config/local*.yml
+config/local*.json
+hyperparams/optimized/
+
+# OS
+.DS_Store
+Thumbs.db
