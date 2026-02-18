@@ -1,6 +1,6 @@
 """
 Market data fetching module using yfinance.
-Fetches historical and intraday data for ETFs and French stocks.
+Fetches historical and intraday data for ETFs, small caps, commodities, and French stocks.
 """
 
 import yfinance as yf
@@ -15,13 +15,28 @@ logger = logging.getLogger(__name__)
 # Asset definitions
 ETF_TICKERS = ["SPY", "QQQ", "GLD", "TLT", "FEZ", "^FCHI"]
 
+SMALL_CAP_TICKERS = [
+    "IWM",    # iShares Russell 2000 (US small caps)
+    "IJR",    # iShares Core S&P Small-Cap 600
+    "VB",     # Vanguard Small-Cap ETF
+    "GWX",    # SPDR S&P International Small Cap
+]
+
+COMMODITY_TICKERS = [
+    "SLV",    # iShares Silver Trust
+    "USO",    # United States Oil Fund
+    "DBA",    # Invesco DB Agriculture Fund
+    "PDBC",   # Invesco Optimum Yield Diversified Commodity
+    "COPX",   # Global X Copper Miners ETF
+]
+
 FRENCH_STOCK_TICKERS = [
     "MC.PA", "TTE.PA", "SAN.PA", "OR.PA", "AIR.PA", "SU.PA",
     "AI.PA", "BNP.PA", "CS.PA", "RMS.PA", "SAF.PA", "DSY.PA",
     "DG.PA", "SGO.PA", "KER.PA"
 ]
 
-ALL_TICKERS = ETF_TICKERS + FRENCH_STOCK_TICKERS
+ALL_TICKERS = ETF_TICKERS + SMALL_CAP_TICKERS + COMMODITY_TICKERS + FRENCH_STOCK_TICKERS
 
 
 def fetch_historical_data(
