@@ -8,6 +8,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+import numpy as np
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -16,6 +17,7 @@ from data.fetch_market_data import fetch_historical_data, fetch_current_prices, 
 from data.indicators import analyze_market_data
 from portfolio.portfolio import Portfolio
 from llm.trading_agent import TradingAgent
+from risk.cvar import calculate_portfolio_cvar, tail_risk_analysis
 
 
 def setup_directories():
@@ -57,6 +59,48 @@ def run_daily_pipeline(dry_run: bool = False):
     portfolio.save_state()
     
     portfolio.print_summary()
+    
+    # Calculate portfolio risk metrics (CVaR)
+    print("\n[3.5/7] Calculating risk metrics (CVaR)...")
+    portfolio_summary = portfolio.get_summary()
+    
+    # Build position returns from historical data for CVaR calculation
+    position_returns = {}
+    portfolio_weights = {}
+    total_value = portfolio_summary['total_value']
+    
+    for ticker, position in portfolio_summary.get('positions', {}).items():
+        if ticker in market_analysis['assets']:
+            # Get historical returns for this position
+            hist_data = market_analysis['assets'][ticker]
+            if 'returns' in hist_data:
+                position_returns[ticker] = np.array(hist_data['returns'])
+                # Weight = position value / total portfolio value
+                portfolio_weights[ticker] = position['market_value'] / total_value
+    
+    if position_returns and len(position_returns) > 0:
+        cvar_result = calculate_portfolio_cvar(position_returns, portfolio_weights)
+        tail_risk = tail_risk_analysis(
+            np.array([sum(position_returns[t] * portfolio_weights[t] 
+                         for t in position_returns if t in portfolio_weights)]),
+            benchmark_returns=None
+        )
+        
+        print(f"  CVaR 95%: {cvar_result.cvar_95:.2%}")
+        print(f"  VaR 95%: {cvar_result.var_95:.2%}")
+        print(f"  Max Drawdown: {tail_risk.get('max_drawdown', 0):.2%}")
+        
+        # Add risk metrics to portfolio summary
+        portfolio_summary['risk_metrics'] = {
+            'cvar_95': cvar_result.cvar_95,
+            'cvar_99': cvar_result.cvar_99,
+            'var_95': cvar_result.var_95,
+            'var_99': cvar_result.var_99,
+            'max_drawdown': tail_risk.get('max_drawdown', 0),
+            'sortino_ratio': tail_risk.get('sortino_ratio', 0),
+            'skewness': tail_risk.get('skewness', 0),
+            'kurtosis': tail_risk.get('kurtosis', 0)
+        }
     
     # Step 4: Get LLM decision
     print("\n[4/7] Getting trading decision from LLM...")
