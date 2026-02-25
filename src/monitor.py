@@ -3,29 +3,77 @@
 Intraday monitoring script.
 Checks for significant price movements and alerts if thresholds are breached.
 Called every 2 hours during market hours (8h-20h UTC) by external cron.
+
+Improvements:
+- Dynamic indices from universe.json
+- Bollinger Bands breakout detection
+- Configurable thresholds
 """
 
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from data.fetch_market_data import fetch_current_prices
+from data.fetch_market_data import fetch_current_prices, get_tickers_by_category
+from data.indicators import analyze_market_data
 from portfolio.portfolio import Portfolio
 
 
-# Alert thresholds
-THRESHOLDS = {
-    'position_movement_pct': 2.0,  # Alert if portfolio position moves > 2%
-    'index_movement_pct': 3.0,     # Alert if index moves > 3%
-    'portfolio_drawdown_pct': 1.5  # Alert if portfolio draws down > 1.5%
+# Default alert thresholds (can be overridden via config)
+DEFAULT_THRESHOLDS = {
+    'position_movement_pct': 2.0,      # Alert if portfolio position moves > 2%
+    'index_movement_pct': 3.0,         # Alert if index moves > 3%
+    'portfolio_drawdown_pct': 1.5,     # Alert if portfolio draws down > 1.5%
+    'bollinger_breakout_pct': 2.0,     # Alert if price breaks BB by > 2%
 }
 
-# Indices to monitor
-INDICES = ["SPY", "^FCHI"]  # S&P 500 and CAC 40
+
+def load_config() -> Dict:
+    """Load monitor configuration from config file if exists."""
+    config_path = Path("config/monitor.json")
+    if config_path.exists():
+        with open(config_path) as f:
+            return json.load(f)
+    return {}
+
+
+def get_indices_to_monitor() -> List[str]:
+    """
+    Get benchmark indices to monitor from universe config.
+    Returns ETF category tickers (typically major indices).
+    """
+    # Primary benchmarks: ETFs representing major indices
+    etf_tickers = get_tickers_by_category('etf')
+    
+    # Also include commodities as macro indicators
+    commodity_tickers = get_tickers_by_category('commodity')
+    
+    # Combine - limit to most liquid/important ones
+    key_tickers = []
+    
+    # Key equity indices (always monitor these)
+    priority_etfs = ['SPY', 'QQQ', '^FCHI', 'FEZ']
+    for t in priority_etfs:
+        if t in etf_tickers:
+            key_tickers.append(t)
+    
+    # Add remaining ETFs
+    for t in etf_tickers:
+        if t not in key_tickers:
+            key_tickers.append(t)
+    
+    # Add key commodities as macro indicators
+    priority_commodities = ['GLD', 'PDBC', 'USO']
+    for t in priority_commodities:
+        if t in commodity_tickers and t not in key_tickers:
+            key_tickers.append(t)
+    
+    return key_tickers
 
 
 def load_previous_close(portfolio: Portfolio) -> Dict[str, float]:
@@ -60,10 +108,75 @@ def save_market_state(prices: Dict[str, float]):
         json.dump(state, f, indent=2)
 
 
+def check_bollinger_breakouts(
+    market_analysis: Dict,
+    current_prices: Dict[str, float],
+    threshold_pct: float
+) -> List[Dict]:
+    """
+    Check for Bollinger Bands breakouts.
+    
+    Args:
+        market_analysis: Analysis data with Bollinger Bands
+        current_prices: Current price snapshot
+        threshold_pct: Minimum breakout percentage to trigger alert
+    
+    Returns:
+        List of breakout alerts
+    """
+    alerts = []
+    
+    for ticker, analysis in market_analysis.get('assets', {}).items():
+        current_price = current_prices.get(ticker)
+        if not current_price:
+            continue
+        
+        latest = analysis.get('latest', {})
+        bb_upper = latest.get('bb_upper')
+        bb_lower = latest.get('bb_lower')
+        
+        if bb_upper is None or bb_lower is None:
+            continue
+        
+        # Check upper breakout
+        if current_price > bb_upper:
+            breakout_pct = ((current_price - bb_upper) / bb_upper) * 100
+            if breakout_pct >= threshold_pct:
+                alerts.append({
+                    'type': 'bollinger_breakout_upper',
+                    'ticker': ticker,
+                    'severity': 'medium',
+                    'current_price': current_price,
+                    'bb_upper': bb_upper,
+                    'bb_lower': bb_lower,
+                    'breakout_pct': breakout_pct,
+                    'message': f'{ticker} broke above upper Bollinger Band by {breakout_pct:.2f}%'
+                })
+        
+        # Check lower breakout
+        elif current_price < bb_lower:
+            breakout_pct = ((bb_lower - current_price) / bb_lower) * 100
+            if breakout_pct >= threshold_pct:
+                alerts.append({
+                    'type': 'bollinger_breakout_lower',
+                    'ticker': ticker,
+                    'severity': 'medium',
+                    'current_price': current_price,
+                    'bb_upper': bb_upper,
+                    'bb_lower': bb_lower,
+                    'breakout_pct': breakout_pct,
+                    'message': f'{ticker} broke below lower Bollinger Band by {breakout_pct:.2f}%'
+                })
+    
+    return alerts
+
+
 def check_movements(
     current_prices: Dict[str, float],
     reference_prices: Dict[str, float],
-    portfolio: Portfolio
+    portfolio: Portfolio,
+    indices: List[str],
+    thresholds: Dict
 ) -> List[Dict]:
     """
     Check for significant price movements.
@@ -85,7 +198,7 @@ def check_movements(
         if reference_price > 0:
             movement_pct = ((current_price - reference_price) / reference_price) * 100
             
-            if abs(movement_pct) >= THRESHOLDS['position_movement_pct']:
+            if abs(movement_pct) >= thresholds['position_movement_pct']:
                 alerts.append({
                     'type': 'position_movement',
                     'ticker': ticker,
@@ -97,15 +210,15 @@ def check_movements(
                     'unrealized_pnl': position.unrealized_pnl
                 })
     
-    # Check indices
-    for index in INDICES:
+    # Check indices/benchmarks
+    for index in indices:
         current_price = current_prices.get(index)
         reference_price = reference_prices.get(index)
         
         if current_price and reference_price:
             movement_pct = ((current_price - reference_price) / reference_price) * 100
             
-            if abs(movement_pct) >= THRESHOLDS['index_movement_pct']:
+            if abs(movement_pct) >= thresholds['index_movement_pct']:
                 alerts.append({
                     'type': 'index_movement',
                     'ticker': index,
@@ -126,7 +239,7 @@ def check_movements(
         if total_cost > 0:
             drawdown_pct = ((total_current - total_cost) / total_cost) * 100
             
-            if drawdown_pct <= -THRESHOLDS['portfolio_drawdown_pct']:
+            if drawdown_pct <= -thresholds['portfolio_drawdown_pct']:
                 alerts.append({
                     'type': 'portfolio_drawdown',
                     'ticker': 'PORTFOLIO',
@@ -143,11 +256,19 @@ def run_monitor():
     """Run the monitoring check."""
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting intraday monitor...")
     
+    # Load configuration
+    config = load_config()
+    thresholds = config.get('thresholds', DEFAULT_THRESHOLDS)
+    
     # Load portfolio
     portfolio = Portfolio(data_dir="data")
     
+    # Get dynamic indices from universe config
+    indices = get_indices_to_monitor()
+    print(f"Monitoring {len(indices)} benchmark indices: {', '.join(indices[:5])}...")
+    
     # Get tickers to monitor (positions + indices)
-    tickers_to_monitor = list(portfolio.positions.keys()) + INDICES
+    tickers_to_monitor = list(portfolio.positions.keys()) + indices
     
     if not tickers_to_monitor:
         print("No positions to monitor.")
@@ -157,11 +278,25 @@ def run_monitor():
     print(f"Fetching prices for {len(tickers_to_monitor)} tickers...")
     current_prices = fetch_current_prices(tickers_to_monitor)
     
+    # Fetch market data for Bollinger analysis
+    print("Fetching market data for technical analysis...")
+    from data.fetch_market_data import fetch_historical_data
+    market_data = fetch_historical_data(tickers_to_monitor, period="10d")
+    market_analysis = analyze_market_data(market_data)
+    
     # Load reference prices
     reference_prices = load_previous_close(portfolio)
     
     # Check for movements
-    alerts = check_movements(current_prices, reference_prices, portfolio)
+    alerts = check_movements(
+        current_prices, reference_prices, portfolio, indices, thresholds
+    )
+    
+    # Check for Bollinger Bands breakouts
+    bb_alerts = check_bollinger_breakouts(
+        market_analysis, current_prices, thresholds.get('bollinger_breakout_pct', 2.0)
+    )
+    alerts.extend(bb_alerts)
     
     # Save current prices for next check
     save_market_state(current_prices)
@@ -181,10 +316,14 @@ def run_monitor():
                 print(f"Position P&L: €{alert['unrealized_pnl']:+.2f}")
             elif alert['type'] == 'index_movement':
                 print(f"Movement: {alert['movement_pct']:+.2f}%")
-                print(f"Price: {alert['current_price']:.2f}")
+                print(f"Price: €{alert['current_price']:.2f}")
             elif alert['type'] == 'portfolio_drawdown':
                 print(f"Drawdown: {alert['drawdown_pct']:.2f}%")
                 print(f"Value: €{alert['current_value']:.2f} (cost: €{alert['cost_basis']:.2f})")
+            elif 'bollinger' in alert['type']:
+                print(f"Breakout: {alert['breakout_pct']:.2f}%")
+                print(f"Price: €{alert['current_price']:.2f}")
+                print(f"BB Upper: €{alert['bb_upper']:.2f}, BB Lower: €{alert['bb_lower']:.2f}")
             
             print("-" * 50)
         
@@ -193,7 +332,8 @@ def run_monitor():
             'timestamp': datetime.now().isoformat(),
             'alert_count': len(alerts),
             'alerts': alerts,
-            'portfolio_value': portfolio.total_value
+            'portfolio_value': portfolio.total_value,
+            'indices_monitored': indices
         }
         print("\nJSON_OUTPUT:")
         print(json.dumps(output, indent=2))
