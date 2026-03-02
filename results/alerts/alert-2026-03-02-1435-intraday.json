@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-03-02T14:35:05Z",
+  "trigger": "intraday_monitor",
+  "alert_count": 3,
+  "market_context": {
+    "spy_change_pct": -0.44,
+    "market_sentiment": "slight_risk_off"
+  },
+  "alerts": [
+    {
+      "ticker": "PDBC",
+      "severity": "medium",
+      "current_price": 15.35,
+      "change_pct": 3.23,
+      "position_pnl_pct": 4.3,
+      "analysis": "Commodities rallying on inflation concerns or supply constraints. Position already profitable. No stop-loss triggered."
+    },
+    {
+      "ticker": "GLD",
+      "severity": "medium", 
+      "current_price": 489.62,
+      "change_pct": 1.84,
+      "position_pnl_pct": 2.5,
+      "analysis": "Gold continuing uptrend, likely safe-haven flow given slight market weakness. Position profitable."
+    },
+    {
+      "ticker": "FEZ",
+      "severity": "medium",
+      "current_price": 66.76,
+      "change_pct": -2.92,
+      "position_pnl_pct": -2.6,
+      "analysis": "European equities underperforming. Position from Friday already underwater but within normal volatility range."
+    }
+  ],
+  "decision": {
+    "action": "HOLD_ALL",
+    "reasoning": "No stop-losses triggered (5% threshold not reached). Movements significant but not extreme. Intraday volatility within expected ranges. Major rebalancing decision deferred to daily close (22:30 UTC) per strategy rules. Monitoring continues.",
+    "execution": "none"
+  },
+  "next_review": "2026-03-02T22:30:00Z"
+}

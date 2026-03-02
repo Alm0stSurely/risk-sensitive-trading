@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-03-02T17:45:05Z",
+  "trigger": "intraday_monitor",
+  "alert_count": 3,
+  "market_context": {
+    "sentiment": "stable_with_sector_rotation",
+    "note": "FEZ recovering from earlier lows, commodities holding gains"
+  },
+  "alerts": [
+    {
+      "ticker": "PDBC",
+      "severity": "medium",
+      "movement_pct": 3.39,
+      "status": "stable"
+    },
+    {
+      "ticker": "GLD",
+      "severity": "medium",
+      "movement_pct": 2.09,
+      "status": "stable"
+    },
+    {
+      "ticker": "FEZ",
+      "severity": "medium",
+      "movement_pct": -2.61,
+      "status": "improving_from_earlier_low",
+      "note": "Recovered from -3.17% at 16:35 UTC"
+    }
+  ],
+  "decision": {
+    "action": "HOLD_ALL",
+    "reasoning": "Third intraday alert in 3 hours. All movements stable or improving. FEZ recovered 0.5% from lows. No stop-losses triggered. Discipline demands deferring to daily close strategy. Intraday volatility is expected noise, not signal.",
+    "execution": "none"
+  },
+  "next_review": "2026-03-02T22:30:00Z"
+}

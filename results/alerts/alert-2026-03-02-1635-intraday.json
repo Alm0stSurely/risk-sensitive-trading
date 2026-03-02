@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-03-02T16:35:05Z",
+  "trigger": "intraday_monitor",
+  "alert_count": 2,
+  "market_context": {
+    "spy_change_pct": -0.06,
+    "qqq_change_pct": -0.21,
+    "tlt_change_pct": -1.35,
+    "market_sentiment": "neutral_slightly_risk_off"
+  },
+  "alerts": [
+    {
+      "ticker": "PDBC",
+      "severity": "medium",
+      "current_price": 15.26,
+      "intraday_change_pct": 2.75,
+      "position_pnl_pct": 3.8,
+      "distance_from_sma20_pct": 2.66,
+      "analysis": "Strong momentum in commodities. Position well above SMA20, trend intact. Inflation hedge working as expected."
+    },
+    {
+      "ticker": "FEZ",
+      "severity": "medium", 
+      "current_price": 66.37,
+      "intraday_change_pct": -3.25,
+      "position_pnl_pct": -3.17,
+      "distance_from_sma20_pct": -3.17,
+      "analysis": "European equities under pressure. Broke below SMA20. Position from Friday now at -3.17% loss. Approaching but NOT at 5% stop-loss threshold."
+    }
+  ],
+  "decision": {
+    "action": "HOLD_ALL",
+    "reasoning": "FEZ at -3.17% is concerning but within risk tolerance. Stop-loss at 5% not triggered. PDBC rally is favorable - commodities hedging equity weakness. Intraday movements not extreme enough to override daily strategy. Major rebalancing decision deferred to 22:30 UTC as per systematic rules.",
+    "watch_list": ["FEZ"],
+    "warning": "If FEZ reaches -4.5%, trigger emergency review before daily close",
+    "execution": "none"
+  },
+  "next_review": "2026-03-02T22:30:00Z"
+}
