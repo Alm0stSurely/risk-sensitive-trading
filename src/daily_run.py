@@ -18,6 +18,7 @@ from data.indicators import analyze_market_data
 from portfolio.portfolio import Portfolio
 from llm.trading_agent import TradingAgent
 from risk.cvar import calculate_portfolio_cvar, tail_risk_analysis
+from risk.performance_metrics import calculate_all_metrics, format_metrics_report
 
 
 def setup_directories():
@@ -174,6 +175,57 @@ def run_daily_pipeline(dry_run: bool = False):
     portfolio.save_state()
     print("  ✓ State saved")
     
+    # Step 6.5: Calculate performance metrics (Sharpe, Beta, Alpha)
+    print("\n[6.5/7] Calculating performance metrics...")
+    
+    # Get SPY as benchmark for Beta/Alpha calculation
+    spy_returns = None
+    if 'SPY' in position_returns:
+        spy_returns = position_returns['SPY']
+    elif 'SPY' in market_analysis['assets'] and 'returns' in market_analysis['assets']['SPY']:
+        spy_returns = np.array(market_analysis['assets']['SPY']['returns'])
+    
+    # Calculate portfolio returns from position returns
+    portfolio_returns_list = []
+    if position_returns:
+        # Align all return series to same length
+        min_len = min(len(r) for r in position_returns.values())
+        for i in range(min_len):
+            daily_return = sum(
+                position_returns[t][-min_len:][i] * portfolio_weights.get(t, 0)
+                for t in position_returns
+            )
+            portfolio_returns_list.append(daily_return)
+    
+    performance_metrics = None
+    if portfolio_returns_list:
+        portfolio_returns = np.array(portfolio_returns_list)
+        perf_metrics = calculate_all_metrics(
+            portfolio_returns,
+            benchmark_returns=spy_returns,
+            risk_free_rate=0.02
+        )
+        
+        performance_metrics = {
+            'sharpe_ratio': perf_metrics.sharpe_ratio,
+            'sortino_ratio': perf_metrics.sortino_ratio,
+            'calmar_ratio': perf_metrics.calmar_ratio,
+            'volatility': perf_metrics.volatility,
+            'beta': perf_metrics.beta,
+            'alpha': perf_metrics.alpha,
+            'treynor_ratio': perf_metrics.treynor_ratio,
+            'information_ratio': perf_metrics.information_ratio,
+            'tracking_error': perf_metrics.tracking_error,
+            'max_drawdown': perf_metrics.max_drawdown,
+            'annualized_return': perf_metrics.annualized_return
+        }
+        
+        print(f"  Sharpe Ratio: {perf_metrics.sharpe_ratio:.2f}")
+        if perf_metrics.beta is not None:
+            print(f"  Beta (vs SPY): {perf_metrics.beta:.2f}")
+            print(f"  Alpha: {perf_metrics.alpha:.2%}")
+        print(f"  Volatility: {perf_metrics.volatility:.2%}")
+    
     # Step 7: Log results
     print("\n[7/7] Logging results...")
     
@@ -196,7 +248,8 @@ def run_daily_pipeline(dry_run: bool = False):
             'error': decision.get('error', False)
         },
         'executed_trades': executed_trades,
-        'portfolio_after': portfolio.get_summary() if not dry_run else portfolio_summary
+        'portfolio_after': portfolio.get_summary() if not dry_run else portfolio_summary,
+        'performance_metrics': performance_metrics
     }
     
     # Save to daily results
