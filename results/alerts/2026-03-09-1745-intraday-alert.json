@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-03-09T17:45:04Z",
+  "alert_type": "intraday_monitor",
+  "market_context": {
+    "note": "Volatile session - partial rebound from 14:35 lows but IWM approaching stop-loss again",
+    "time_to_close_hours": 4
+  },
+  "portfolio_state": {
+    "total_value": 9879.69,
+    "cash": 4001.48,
+    "cash_pct": 40.5,
+    "positions_value": 5878.20,
+    "drawdown_pct": -3.49,
+    "unrealized_pnl": -212.74
+  },
+  "alerts_triggered": [
+    {"type": "position_movement", "ticker": "IWM", "severity": "medium", "movement_pct": -4.95, "distance_to_stop_loss_pct": 0.05},
+    {"type": "position_movement", "ticker": "SPY", "severity": "medium", "movement_pct": -3.06},
+    {"type": "position_movement", "ticker": "GLD", "severity": "medium", "movement_pct": -2.03},
+    {"type": "position_movement", "ticker": "FEZ", "severity": "medium", "movement_pct": -4.43, "distance_to_stop_loss_pct": 0.57},
+    {"type": "position_movement", "ticker": "SGO.PA", "severity": "medium", "movement_pct": -3.40},
+    {"type": "portfolio_drawdown", "severity": "critical", "drawdown_pct": -3.49}
+  ],
+  "decision": {
+    "action": "HOLD",
+    "executed": false,
+    "reasoning": "IWM at -4.95% (0.05% from stop-loss). FEZ at -4.43% (0.57% from stop-loss). High volatility environment with ~4 hours to US close. Discipline remains: no intraday exits. If IWM closes below -5%, stop-loss executes at 21:30 UTC. Current price action suggests choppy session with no clear direction. Cash buffer at 40.5% provides protection. Holding all positions until close.",
+    "risk_assessment": "Elevated - IWM extremely close to stop-loss threshold",
+    "scenarios": {
+      "bullish": "Market rebounds in final 4h, IWM closes above -5%, no action needed",
+      "bearish": "IWM closes below -5%, stop-loss triggers, position sold",
+      "neutral": "Current levels hold, no breach, hold overnight"
+    },
+    "next_review": "2026-03-09T21:30:00Z"
+  }
+}

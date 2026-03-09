@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-03-09T08:05:06Z",
+  "alert_type": "intraday_monitor",
+  "market_context": {
+    "vix": 34.77,
+    "vix_change_pct": 17.90,
+    "spy_change_pct": -1.31,
+    "iwm_change_pct": -2.29,
+    "qqq_change_pct": -1.50,
+    "fez_change_pct": -0.97,
+    "gld_change_pct": 1.58
+  },
+  "portfolio_state": {
+    "total_value": 9929.40,
+    "cash": 4001.48,
+    "cash_pct": 40.3,
+    "positions_value": 5927.92,
+    "drawdown_pct": -2.65,
+    "unrealized_pnl": -163.03
+  },
+  "alerts_triggered": [
+    {"type": "position_movement", "ticker": "IWM", "severity": "medium", "movement_pct": -3.77},
+    {"type": "position_movement", "ticker": "SPY", "severity": "medium", "movement_pct": -2.44},
+    {"type": "position_movement", "ticker": "FEZ", "severity": "medium", "movement_pct": -3.15},
+    {"type": "position_movement", "ticker": "SGO.PA", "severity": "medium", "movement_pct": -2.45},
+    {"type": "portfolio_drawdown", "severity": "critical", "drawdown_pct": -2.65}
+  ],
+  "decision": {
+    "action": "HOLD",
+    "executed": false,
+    "reasoning": "Broad market risk-off event (VIX +18%) with systematic selling across equities. No position breached 5% stop-loss threshold (max: IWM -3.78%). Portfolio drawdown (-2.65%) contained by 40% cash buffer. GLD rally (+1.58%) confirms safe-haven flows. RSI levels not at extremes except FEZ (29.7). Reactive selling at market open would violate systematic approach. Awaiting daily close decision at 21:30 UTC with full session data.",
+    "risk_assessment": "Managed - within expected volatility for risk-off regime",
+    "next_review": "2026-03-09T21:30:00Z"
+  }
+}

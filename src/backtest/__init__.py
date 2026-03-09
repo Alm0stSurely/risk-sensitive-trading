@@ -20,6 +20,15 @@ from .cpcv import (
     apply_purged_cv,
     calculate_purged_cv_score
 )
+from .meta_labeling import (
+    SignalType,
+    PrimarySignal,
+    MetaLabel,
+    MetaLabelingConfig,
+    MetaLabeler,
+    create_meta_labels_from_triple_barrier,
+    apply_meta_labeling
+)
 
 __all__ = [
     'BacktestEngine',
@@ -35,5 +44,12 @@ __all__ = [
     'PurgedKFold',
     'CombinatorialPurgedCV',
     'apply_purged_cv',
-    'calculate_purged_cv_score'
+    'calculate_purged_cv_score',
+    'SignalType',
+    'PrimarySignal',
+    'MetaLabel',
+    'MetaLabelingConfig',
+    'MetaLabeler',
+    'create_meta_labels_from_triple_barrier',
+    'apply_meta_labeling'
 ]

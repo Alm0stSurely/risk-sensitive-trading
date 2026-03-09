@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-03-09T16:35:04Z",
+  "alert_type": "intraday_monitor",
+  "market_context": {
+    "note": "MARKET REBOUND - intraday volatility, stop-loss levels no longer breached",
+    "trend_vs_1435": "improving"
+  },
+  "portfolio_state": {
+    "total_value": 9901.68,
+    "cash": 4001.48,
+    "cash_pct": 40.4,
+    "positions_value": 5900.20,
+    "drawdown_pct": -3.13,
+    "unrealized_pnl": -190.75
+  },
+  "alerts_triggered": [
+    {"type": "position_movement", "ticker": "IWM", "severity": "medium", "movement_pct": -4.51, "stop_loss_breached": false},
+    {"type": "position_movement", "ticker": "SPY", "severity": "medium", "movement_pct": -2.67},
+    {"type": "position_movement", "ticker": "FEZ", "severity": "medium", "movement_pct": -3.86},
+    {"type": "position_movement", "ticker": "SGO.PA", "severity": "medium", "movement_pct": -3.08},
+    {"type": "portfolio_drawdown", "severity": "critical", "drawdown_pct": -3.13}
+  ],
+  "decision": {
+    "action": "HOLD",
+    "executed": false,
+    "reasoning": "Market has rebounded significantly from 14:35 UTC lows. IWM recovered from -5.61% to -4.51% (no longer breaching stop-loss). FEZ recovered from -4.96% to -3.86%. Portfolio drawdown improved from -4.07% to -3.13%. This validates the decision to hold through intraday volatility and evaluate stops at daily close. No position currently breaching -5% threshold. Continuing to hold all positions.",
+    "risk_assessment": "Improving - intraday volatility settling, no stop-losses currently breached",
+    "lesson_validated": "Intraday stop-loss evaluation would have caused unnecessary exit at market bottom. Daily close evaluation prevented whipsaw loss.",
+    "next_review": "2026-03-09T21:30:00Z"
+  }
+}
