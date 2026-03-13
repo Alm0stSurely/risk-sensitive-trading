@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-03-09T14:35:06Z",
+  "alert_type": "intraday_monitor_critical",
+  "market_context": {
+    "note": "CRITICAL - Risk-off intensifying, gold also declining",
+    "vix_estimate": "elevated"
+  },
+  "portfolio_state": {
+    "total_value": 9844.27,
+    "cash": 4001.48,
+    "cash_pct": 40.6,
+    "positions_value": 5842.79,
+    "drawdown_pct": -4.07,
+    "unrealized_pnl": -248.16
+  },
+  "alerts_triggered": [
+    {"type": "position_movement", "ticker": "IWM", "severity": "high", "movement_pct": -5.61, "stop_loss_breached": true},
+    {"type": "position_movement", "ticker": "SPY", "severity": "medium", "movement_pct": -3.52},
+    {"type": "position_movement", "ticker": "GLD", "severity": "medium", "movement_pct": -2.10},
+    {"type": "position_movement", "ticker": "FEZ", "severity": "medium", "movement_pct": -4.96, "stop_loss_imminent": true},
+    {"type": "position_movement", "ticker": "RMS.PA", "severity": "medium", "movement_pct": -2.18},
+    {"type": "position_movement", "ticker": "SGO.PA", "severity": "medium", "movement_pct": -4.16},
+    {"type": "portfolio_drawdown", "severity": "critical", "drawdown_pct": -4.07}
+  ],
+  "decision": {
+    "action": "HOLD",
+    "executed": false,
+    "reasoning": "STOP-LOSS BREACHED INTRADAY: IWM at -5.61% (threshold: -5%). FEZ at -4.96% (imminent). However, stop-loss rules are evaluated at daily close to avoid intraday volatility whipsaws. Market is in full risk-off mode (even GLD declining -2.10%). If IWM closes below -5% at 21:30 UTC, stop-loss will be executed. Holding for now to see if rebound materializes before close. This is a test of discipline: following the rule (close-based stops) even when intraday looks painful.",
+    "risk_assessment": "CRITICAL - Multiple positions approaching stop-loss. Portfolio drawdown accelerating (-4.07%). Cash buffer now 40.6%.",
+    "next_review": "2026-03-09T21:30:00Z",
+    "likely_actions_at_close": [
+      {"ticker": "IWM", "probability": 0.85, "action": "sell", "condition": "if close below -5%"},
+      {"ticker": "FEZ", "probability": 0.60, "action": "sell", "condition": "if close below -5%"}
+    ]
+  }
+}

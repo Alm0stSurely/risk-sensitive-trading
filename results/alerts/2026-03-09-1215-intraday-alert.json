@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-03-09T12:15:06Z",
+  "alert_type": "intraday_monitor",
+  "market_context": {
+    "note": "Intraday update - continued risk-off sentiment"
+  },
+  "portfolio_state": {
+    "total_value": 9929.40,
+    "cash": 4001.48,
+    "cash_pct": 40.3,
+    "positions_value": 5920.04,
+    "drawdown_pct": -2.81,
+    "unrealized_pnl": -170.91
+  },
+  "alerts_triggered": [
+    {"type": "position_movement", "ticker": "IWM", "severity": "medium", "movement_pct": -3.77},
+    {"type": "position_movement", "ticker": "SPY", "severity": "medium", "movement_pct": -2.44},
+    {"type": "position_movement", "ticker": "FEZ", "severity": "medium", "movement_pct": -3.15},
+    {"type": "position_movement", "ticker": "RMS.PA", "severity": "medium", "movement_pct": -2.15},
+    {"type": "position_movement", "ticker": "SGO.PA", "severity": "medium", "movement_pct": -4.24},
+    {"type": "portfolio_drawdown", "severity": "critical", "drawdown_pct": -2.81}
+  ],
+  "decision": {
+    "action": "HOLD",
+    "executed": false,
+    "reasoning": "SGO.PA approaching stop-loss at -4.24% (threshold: -5%). However, this is systematic risk-off movement affecting all equity positions, not idiosyncratic risk. IWM (-3.77%), SPY (-2.44%), FEZ (-3.15%) all showing similar patterns. No position has breached the 5% stop-loss threshold. Cash buffer (40%) containing drawdown at -2.81%. Intraday volatility is expected in risk-off regimes. Awaiting daily close for stop-loss evaluation as per strategy rules.",
+    "risk_assessment": "Managed - SGO.PA approaching threshold but systematic not idiosyncratic",
+    "next_review": "2026-03-09T21:30:00Z"
+  }
+}

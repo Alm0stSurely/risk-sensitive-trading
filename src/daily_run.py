@@ -8,6 +8,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+import numpy as np
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -16,6 +17,8 @@ from data.fetch_market_data import fetch_historical_data, fetch_current_prices, 
 from data.indicators import analyze_market_data
 from portfolio.portfolio import Portfolio
 from llm.trading_agent import TradingAgent
+from risk.cvar import calculate_portfolio_cvar, tail_risk_analysis
+from risk.performance_metrics import calculate_all_metrics, format_metrics_report
 
 
 def setup_directories():
@@ -57,6 +60,49 @@ def run_daily_pipeline(dry_run: bool = False):
     portfolio.save_state()
     
     portfolio.print_summary()
+    
+    # Calculate portfolio risk metrics (CVaR)
+    print("\n[3.5/7] Calculating risk metrics (CVaR)...")
+    portfolio_summary = portfolio.get_summary()
+    
+    # Build position returns from historical data for CVaR calculation
+    position_returns = {}
+    portfolio_weights = {}
+    total_value = portfolio_summary['total_value']
+    
+    for position in portfolio_summary.get('positions', []):
+        ticker = position['ticker']
+        if ticker in market_analysis['assets']:
+            # Get historical returns for this position
+            hist_data = market_analysis['assets'][ticker]
+            if 'returns' in hist_data:
+                position_returns[ticker] = np.array(hist_data['returns'])
+                # Weight = position value / total portfolio value
+                portfolio_weights[ticker] = position['market_value'] / total_value
+    
+    if position_returns and len(position_returns) > 0:
+        cvar_result = calculate_portfolio_cvar(position_returns, portfolio_weights)
+        tail_risk = tail_risk_analysis(
+            np.array([sum(position_returns[t] * portfolio_weights[t] 
+                         for t in position_returns if t in portfolio_weights)]),
+            benchmark_returns=None
+        )
+        
+        print(f"  CVaR 95%: {cvar_result.cvar_95:.2%}")
+        print(f"  VaR 95%: {cvar_result.var_95:.2%}")
+        print(f"  Max Drawdown: {tail_risk.get('max_drawdown', 0):.2%}")
+        
+        # Add risk metrics to portfolio summary
+        portfolio_summary['risk_metrics'] = {
+            'cvar_95': cvar_result.cvar_95,
+            'cvar_99': cvar_result.cvar_99,
+            'var_95': cvar_result.var_95,
+            'var_99': cvar_result.var_99,
+            'max_drawdown': tail_risk.get('max_drawdown', 0),
+            'sortino_ratio': tail_risk.get('sortino_ratio', 0),
+            'skewness': tail_risk.get('skewness', 0),
+            'kurtosis': tail_risk.get('kurtosis', 0)
+        }
     
     # Step 4: Get LLM decision
     print("\n[4/7] Getting trading decision from LLM...")
@@ -129,6 +175,57 @@ def run_daily_pipeline(dry_run: bool = False):
     portfolio.save_state()
     print("  ✓ State saved")
     
+    # Step 6.5: Calculate performance metrics (Sharpe, Beta, Alpha)
+    print("\n[6.5/7] Calculating performance metrics...")
+    
+    # Get SPY as benchmark for Beta/Alpha calculation
+    spy_returns = None
+    if 'SPY' in position_returns:
+        spy_returns = position_returns['SPY']
+    elif 'SPY' in market_analysis['assets'] and 'returns' in market_analysis['assets']['SPY']:
+        spy_returns = np.array(market_analysis['assets']['SPY']['returns'])
+    
+    # Calculate portfolio returns from position returns
+    portfolio_returns_list = []
+    if position_returns:
+        # Align all return series to same length
+        min_len = min(len(r) for r in position_returns.values())
+        for i in range(min_len):
+            daily_return = sum(
+                position_returns[t][-min_len:][i] * portfolio_weights.get(t, 0)
+                for t in position_returns
+            )
+            portfolio_returns_list.append(daily_return)
+    
+    performance_metrics = None
+    if portfolio_returns_list:
+        portfolio_returns = np.array(portfolio_returns_list)
+        perf_metrics = calculate_all_metrics(
+            portfolio_returns,
+            benchmark_returns=spy_returns,
+            risk_free_rate=0.02
+        )
+        
+        performance_metrics = {
+            'sharpe_ratio': perf_metrics.sharpe_ratio,
+            'sortino_ratio': perf_metrics.sortino_ratio,
+            'calmar_ratio': perf_metrics.calmar_ratio,
+            'volatility': perf_metrics.volatility,
+            'beta': perf_metrics.beta,
+            'alpha': perf_metrics.alpha,
+            'treynor_ratio': perf_metrics.treynor_ratio,
+            'information_ratio': perf_metrics.information_ratio,
+            'tracking_error': perf_metrics.tracking_error,
+            'max_drawdown': perf_metrics.max_drawdown,
+            'annualized_return': perf_metrics.annualized_return
+        }
+        
+        print(f"  Sharpe Ratio: {perf_metrics.sharpe_ratio:.2f}")
+        if perf_metrics.beta is not None:
+            print(f"  Beta (vs SPY): {perf_metrics.beta:.2f}")
+            print(f"  Alpha: {perf_metrics.alpha:.2%}")
+        print(f"  Volatility: {perf_metrics.volatility:.2%}")
+    
     # Step 7: Log results
     print("\n[7/7] Logging results...")
     
@@ -151,7 +248,8 @@ def run_daily_pipeline(dry_run: bool = False):
             'error': decision.get('error', False)
         },
         'executed_trades': executed_trades,
-        'portfolio_after': portfolio.get_summary() if not dry_run else portfolio_summary
+        'portfolio_after': portfolio.get_summary() if not dry_run else portfolio_summary,
+        'performance_metrics': performance_metrics
     }
     
     # Save to daily results
