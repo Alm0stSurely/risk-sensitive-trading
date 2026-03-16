@@ -17,15 +17,50 @@ from data.fetch_market_data import fetch_current_prices
 from portfolio.portfolio import Portfolio
 
 
-# Alert thresholds
-THRESHOLDS = {
-    'position_movement_pct': 2.0,  # Alert if portfolio position moves > 2%
-    'index_movement_pct': 3.0,     # Alert if index moves > 3%
-    'portfolio_drawdown_pct': 1.5  # Alert if portfolio draws down > 1.5%
-}
+# Load thresholds from config
+CONFIG_PATH = Path(__file__).parent.parent / "config" / "monitor.json"
+UNIVERSE_PATH = Path(__file__).parent.parent / "config" / "universe.json"
 
-# Indices to monitor
-INDICES = ["SPY", "^FCHI"]  # S&P 500 and CAC 40
+def load_monitor_config() -> dict:
+    """Load monitor configuration from config/monitor.json."""
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load monitor config: {e}")
+    
+    # Default config
+    return {
+        'alert_thresholds': {
+            'position_movement_pct': 2.0,
+            'index_movement_pct': 3.0,
+            'portfolio_drawdown_pct': 1.5,
+            'bollinger_breakout_std': 2.0
+        },
+        'indices': ["SPY", "^FCHI"],
+        'check_stop_losses': True,
+        'stop_loss_threshold_pct': 5.0,
+        'check_bollinger': True
+    }
+
+def load_universe() -> dict:
+    """Load asset universe from config/universe.json."""
+    if UNIVERSE_PATH.exists():
+        try:
+            with open(UNIVERSE_PATH, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load universe: {e}")
+    return {}
+
+# Initialize config
+_monitor_config = load_monitor_config()
+THRESHOLDS = _monitor_config.get('alert_thresholds', {})
+INDICES = _monitor_config.get('indices', ["SPY", "^FCHI"])
+CHECK_STOP_LOSSES = _monitor_config.get('check_stop_losses', True)
+STOP_LOSS_THRESHOLD = _monitor_config.get('stop_loss_threshold_pct', 5.0)
+CHECK_BOLLINGER = _monitor_config.get('check_bollinger', True)
 
 
 def load_previous_close(portfolio: Portfolio) -> Dict[str, float]:
@@ -60,6 +95,103 @@ def save_market_state(prices: Dict[str, float]):
         json.dump(state, f, indent=2)
 
 
+def check_stop_losses(
+    current_prices: Dict[str, float],
+    portfolio: Portfolio
+) -> List[Dict]:
+    """Check if any positions have hit their stop-loss threshold."""
+    alerts = []
+    
+    if not CHECK_STOP_LOSSES:
+        return alerts
+    
+    for ticker, position in portfolio.positions.items():
+        current_price = current_prices.get(ticker)
+        if not current_price or position.avg_price <= 0:
+            continue
+        
+        drawdown_pct = ((current_price - position.avg_price) / position.avg_price) * 100
+        
+        if drawdown_pct <= -STOP_LOSS_THRESHOLD:
+            alerts.append({
+                'type': 'stop_loss_triggered',
+                'ticker': ticker,
+                'severity': 'critical',
+                'current_price': current_price,
+                'entry_price': position.avg_price,
+                'drawdown_pct': drawdown_pct,
+                'stop_threshold': STOP_LOSS_THRESHOLD,
+                'action_required': 'SELL'
+            })
+    
+    return alerts
+
+
+def check_bollinger_breakouts(
+    current_prices: Dict[str, float],
+    portfolio: Portfolio
+) -> List[Dict]:
+    """Check for Bollinger Band breakouts."""
+    alerts = []
+    
+    if not CHECK_BOLLINGER:
+        return alerts
+    
+    # Import indicators here to avoid circular imports
+    try:
+        from data.indicators import calculate_bollinger_bands
+        import pandas as pd
+        from data.fetch_market_data import fetch_market_data
+    except ImportError:
+        return alerts
+    
+    for ticker in portfolio.positions.keys():
+        current_price = current_prices.get(ticker)
+        if not current_price:
+            continue
+        
+        try:
+            # Fetch recent data for Bollinger calculation
+            df = fetch_market_data(ticker, period='20d')
+            if df is None or len(df) < 20:
+                continue
+            
+            upper, middle, lower = calculate_bollinger_bands(df['Close'])
+            
+            if upper is None or lower is None:
+                continue
+            
+            latest_upper = upper.iloc[-1]
+            latest_lower = lower.iloc[-1]
+            
+            # Check for breakout
+            if current_price > latest_upper:
+                alerts.append({
+                    'type': 'bollinger_breakout',
+                    'ticker': ticker,
+                    'severity': 'medium',
+                    'current_price': current_price,
+                    'bollinger_upper': float(latest_upper),
+                    'direction': 'upper',
+                    'interpretation': 'Overbought - potential mean reversion'
+                })
+            elif current_price < latest_lower:
+                alerts.append({
+                    'type': 'bollinger_breakout',
+                    'ticker': ticker,
+                    'severity': 'medium',
+                    'current_price': current_price,
+                    'bollinger_lower': float(latest_lower),
+                    'direction': 'lower',
+                    'interpretation': 'Oversold - potential bounce'
+                })
+        except Exception as e:
+            # Silently skip if calculation fails
+            continue
+    
+    return alerts
+
+
 def check_movements(
     current_prices: Dict[str, float],
     reference_prices: Dict[str, float],
@@ -73,7 +205,11 @@ def check_movements(
     """
     alerts = []
     
-    # Check portfolio positions
+    # Check stop-losses first (highest priority)
+    stop_alerts = check_stop_losses(current_prices, portfolio)
+    alerts.extend(stop_alerts)
+    
+    # Check portfolio positions for significant movements
     for ticker, position in portfolio.positions.items():
         current_price = current_prices.get(ticker)
         if not current_price:
@@ -85,7 +221,11 @@ def check_movements(
         if reference_price > 0:
             movement_pct = ((current_price - reference_price) / reference_price) * 100
             
-            if abs(movement_pct) >= THRESHOLDS['position_movement_pct']:
+            # Skip if stop-loss already triggered (avoid duplicate alerts)
+            if any(a['ticker'] == ticker and a['type'] == 'stop_loss_triggered' for a in stop_alerts):
+                continue
+            
+            if abs(movement_pct) >= THRESHOLDS.get('position_movement_pct', 2.0):
                 alerts.append({
                     'type': 'position_movement',
                     'ticker': ticker,
@@ -126,7 +266,8 @@ def check_movements(
         if total_cost > 0:
             drawdown_pct = ((total_current - total_cost) / total_cost) * 100
             
-            if drawdown_pct <= -THRESHOLDS['portfolio_drawdown_pct']:
+            threshold = THRESHOLDS.get('portfolio_drawdown_pct', 1.5)
+            if drawdown_pct <= -threshold:
                 alerts.append({
                     'type': 'portfolio_drawdown',
                     'ticker': 'PORTFOLIO',
@@ -135,6 +276,10 @@ def check_movements(
                     'cost_basis': total_cost,
                     'drawdown_pct': drawdown_pct
                 })
+    
+    # Check Bollinger Band breakouts
+    bollinger_alerts = check_bollinger_breakouts(current_prices, portfolio)
+    alerts.extend(bollinger_alerts)
     
     return alerts
 
@@ -185,6 +330,19 @@ def run_monitor():
             elif alert['type'] == 'portfolio_drawdown':
                 print(f"Drawdown: {alert['drawdown_pct']:.2f}%")
                 print(f"Value: €{alert['current_value']:.2f} (cost: €{alert['cost_basis']:.2f})")
+            elif alert['type'] == 'stop_loss_triggered':
+                print(f"🚨 STOP-LOSS TRIGGERED 🚨")
+                print(f"Drawdown: {alert['drawdown_pct']:+.2f}% (threshold: -{alert['stop_threshold']}%)")
+                print(f"Price: €{alert['current_price']:.2f} (entry: €{alert['entry_price']:.2f})")
+                print(f"ACTION REQUIRED: {alert['action_required']}")
+            elif alert['type'] == 'bollinger_breakout':
+                print(f"Direction: {alert['direction'].upper()} breakout")
+                print(f"Price: €{alert['current_price']:.2f}")
+                if alert['direction'] == 'upper':
+                    print(f"Bollinger Upper: €{alert['bollinger_upper']:.2f}")
+                else:
+                    print(f"Bollinger Lower: €{alert['bollinger_lower']:.2f}")
+                print(f"Interpretation: {alert['interpretation']}")
             
             print("-" * 50)
         
