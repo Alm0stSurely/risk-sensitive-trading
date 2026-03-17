@@ -86,6 +86,12 @@ Your decisions must follow these principles inspired by Prospect Theory, Behavio
    - Only trade when you have both: directional edge AND high confidence
    - Current confidence proxy: RSI extremes + Bollinger Band position
 
+9. MARKET REGIME ADAPTATION:
+   - Volatility Regime: In HIGH volatility, prioritize capital preservation, tighten stops, reduce position sizes. In LOW volatility, you can be more aggressive but maintain discipline.
+   - Trend Regime: In TRENDING markets, favor momentum strategies (trend following). In MEAN-REVERTING markets, favor contrarian strategies (buy oversold, sell overbought).
+   - Correlation Regime: In HIGH correlation environments, diversification benefits are limited — reduce overall equity exposure. In LOW correlation, opportunities for risk reduction through diversification are good.
+   - The Market Regime Analysis section provides specific recommendations — follow them unless you have strong evidence to the contrary.
+
 OUTPUT FORMAT:
 Respond with a JSON object containing:
 {
@@ -204,6 +210,11 @@ class TradingAgent:
         if not correlations.empty:
             prompt_parts.append("\n=== CORRELATIONS (20-day returns) ===")
             prompt_parts.append(correlations.to_string())
+        
+        # Market Regime Analysis
+        regime = market_data.get('regime')
+        if regime and regime.get('formatted'):
+            prompt_parts.append(regime['formatted'])
         
         # Portfolio state
         prompt_parts.append("\n\n=== PORTFOLIO STATE ===")

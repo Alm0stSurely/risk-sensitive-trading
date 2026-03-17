@@ -9,6 +9,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 import numpy as np
+import pandas as pd
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -19,6 +20,7 @@ from portfolio.portfolio import Portfolio
 from llm.trading_agent import TradingAgent
 from risk.cvar import calculate_portfolio_cvar, tail_risk_analysis
 from risk.performance_metrics import calculate_all_metrics, format_metrics_report
+from analysis.regime_detector import RegimeDetector, format_regime_for_llm
 
 
 def setup_directories():
@@ -49,6 +51,45 @@ def run_daily_pipeline(dry_run: bool = False):
     print("\n[2/7] Calculating technical indicators...")
     market_analysis = analyze_market_data(market_data_raw)
     print(f"  ✓ Analysis complete for {len(market_analysis['assets'])} assets")
+    
+    # Step 2.5: Market Regime Analysis
+    print("\n[2.5/7] Analyzing market regime...")
+    try:
+        # Build price DataFrame from market data
+        prices_df = pd.DataFrame({
+            ticker: data['history']['close'] 
+            for ticker, data in market_data_raw.items() 
+            if 'history' in data and 'close' in data['history']
+        })
+        
+        if not prices_df.empty:
+            detector = RegimeDetector()
+            regime_state = detector.analyze(prices_df)
+            regime_recommendations = detector.get_strategy_recommendation(regime_state)
+            
+            print(f"  Regime: {regime_state.summary()}")
+            print(f"  Rec: {regime_recommendations['position_sizing']} sizing, "
+                  f"mean_rev={'Y' if regime_recommendations['mean_reversion_opportunities'] else 'N'}, "
+                  f"trend={'Y' if regime_recommendations['trend_following'] else 'N'}")
+            
+            # Add regime info to market_analysis for LLM
+            market_analysis['regime'] = {
+                'state': {
+                    'volatility_regime': regime_state.volatility_regime,
+                    'trend_regime': regime_state.trend_regime,
+                    'correlation_regime': regime_state.correlation_regime,
+                    'volatility_percentile': regime_state.volatility_percentile,
+                    'adx_value': regime_state.adx_value,
+                    'avg_correlation': regime_state.avg_correlation
+                },
+                'recommendations': regime_recommendations,
+                'formatted': format_regime_for_llm(regime_state, regime_recommendations)
+            }
+        else:
+            market_analysis['regime'] = None
+    except Exception as e:
+        print(f"  ⚠ Regime analysis failed: {e}")
+        market_analysis['regime'] = None
     
     # Step 3: Load portfolio
     print("\n[3/7] Loading portfolio...")

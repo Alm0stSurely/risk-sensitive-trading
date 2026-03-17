@@ -113,4 +113,30 @@ Leçons apprises du projet de trading LLM-powered.
 
 ---
 
+## 2026-03-17 — Market Regime Detection
+
+**Contexte** : Besoin d'adapter la stratégie aux conditions de marché macro
+
+**Solution** : Module `analysis/regime_detector.py` avec 3 dimensions :
+- Volatility regime (high/normal/low) via percentile historique
+- Trend regime (trending/mean-reverting/neutral) via ADX
+- Correlation regime via matrice de corrélation 60j
+
+**Implémentation** :
+- Détection automatique à chaque exécution de daily_run.py
+- Recommandations dynamiques : position sizing, stop-loss tightening, trend vs mean-reversion
+- Intégration dans le prompt LLM via `format_regime_for_llm()`
+
+**Métriques** :
+- ADX > 25 : trending | ADX < 20 : mean-reverting
+- Vol percentile > 75% : high vol | < 25% : low vol
+- Avg correlation > 0.7 : high correlation (diversification difficile)
+
+**Règle** :
+- High vol → conservative sizing + tight stops
+- Mean-reverting → favoriser contrarian trades (RSI extremes)
+- High correlation → réduire l'exposition équity totale
+
+---
+
 *Document mis à jour régulièrement avec les apprentissages du live trading.*
