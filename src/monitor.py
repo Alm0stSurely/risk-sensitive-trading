@@ -294,6 +294,13 @@ def run_monitor():
     # Get tickers to monitor (positions + indices)
     tickers_to_monitor = list(portfolio.positions.keys()) + INDICES
     
+    # Filter out empty or invalid tickers
+    tickers_to_monitor = [t.strip() for t in tickers_to_monitor if t and t.strip() and t.strip() != ".PA"]
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    tickers_to_monitor = [t for t in tickers_to_monitor if not (t in seen or seen.add(t))]
+    
     if not tickers_to_monitor:
         print("No positions to monitor.")
         return [], 0

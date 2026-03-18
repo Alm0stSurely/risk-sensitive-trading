@@ -34,7 +34,12 @@ def get_all_tickers() -> List[str]:
     tickers = []
     for category in universe.values():
         for asset in category:
-            tickers.append(asset["ticker"])
+            ticker = asset.get("ticker", "").strip()
+            # Filter out empty tickers
+            if ticker and ticker != ".PA":
+                tickers.append(ticker)
+            elif not ticker or ticker == ".PA":
+                logger.warning(f"Skipping invalid ticker in category: {category}")
     return tickers
 
 
@@ -76,10 +81,17 @@ def fetch_historical_data(
     """
     if tickers is None:
         tickers = get_all_tickers()
+    
+    # Filter out empty or invalid tickers
+    tickers = [t.strip() for t in tickers if t and t.strip() and t.strip() != ".PA"]
 
     results = {}
 
     for ticker in tickers:
+        # Skip invalid tickers
+        if not ticker or ticker == ".PA":
+            logger.warning(f"Skipping invalid ticker: '{ticker}'")
+            continue
         try:
             logger.info(f"Fetching data for {ticker}...")
             stock = yf.Ticker(ticker)
@@ -113,10 +125,17 @@ def fetch_current_prices(
     """
     if tickers is None:
         tickers = get_all_tickers()
+    
+    # Filter out empty or invalid tickers
+    tickers = [t.strip() for t in tickers if t and t.strip() and t.strip() != ".PA"]
 
     results = {}
 
     for ticker in tickers:
+        # Skip invalid tickers
+        if not ticker or ticker == ".PA":
+            logger.warning(f"Skipping invalid ticker: '{ticker}'")
+            continue
         try:
             stock = yf.Ticker(ticker)
             hist = stock.history(period="1d", interval="1m")
@@ -125,7 +144,11 @@ def fetch_current_prices(
                 hist = stock.history(period="5d")
 
             if hist.empty:
-                logger.warning(f"No price data for {ticker}")
+                # Try 1mo for some indices like ^FCHI
+                hist = stock.history(period="1mo")
+            
+            if hist.empty:
+                logger.warning(f"No price data for {ticker} (may be delisted or not available)")
                 results[ticker] = None
                 continue
 
@@ -133,7 +156,8 @@ def fetch_current_prices(
             results[ticker] = float(current_price)
 
         except Exception as e:
-            logger.error(f"Error fetching current price for {ticker}: {e}")
+            # Log but don't crash - some tickers like indices may not be available
+            logger.warning(f"Could not fetch price for {ticker}: {e}")
             results[ticker] = None
 
     return results
