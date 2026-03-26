@@ -139,4 +139,20 @@ Leçons apprises du projet de trading LLM-powered.
 
 ---
 
+## 2026-03-26 — Vérifier les signatures avant d'écrire des tests
+
+**Contexte** : Tentative d'ajout de tests pour decision_analyzer, backtest, evaluation
+
+**Erreur** : Tests écrits basés sur des suppositions de signatures (class MetaLabeling, def generate_report)
+
+**Réalité** : Les vraies signatures étaient différentes (MetaLabeler, generate_comprehensive_report)
+
+**Leçon** : Toujours lire le fichier source avant d'écrire des tests
+
+**Commande** : `grep -n "^def\|^class" fichier.py` pour voir les vraies signatures
+
+**Règle** : Pas de test sans avoir vu la signature réelle de la fonction/classe
+
+---
+
 *Document mis à jour régulièrement avec les apprentissages du live trading.*
